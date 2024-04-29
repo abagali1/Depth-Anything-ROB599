@@ -65,6 +65,8 @@ if __name__ == '__main__':
         filename = os.path.basename(filename)
         output_path = os.path.join(args.outdir, filename[:filename.rfind('.')] + '_video_depth.mp4')
         out = cv2.VideoWriter(output_path, cv2.VideoWriter_fourcc(*"mp4v"), frame_rate, (output_width, frame_height))
+
+        prev_depth = None
         
         while raw_video.isOpened():
             ret, raw_frame = raw_video.read()
@@ -84,11 +86,15 @@ if __name__ == '__main__':
             
             depth = depth.cpu().numpy().astype(np.uint8)
             depth_color = cv2.applyColorMap(depth, cv2.COLORMAP_INFERNO)
+
+            if prev_depth is not None:
+                depth_gradient = cv2.absdiff(depth, prev_depth)
+                depth_gradient_color = cv2.applyColorMap(depth_gradient, cv2.COLORMAP_COOL)
+                split_region = np.ones((frame_height, margin_width, 3), dtype=np.uint8) * 255
+                combined_frame = cv2.hconcat([raw_frame, split_region, depth_gradient_color])
+                out.write(combined_frame)
             
-            split_region = np.ones((frame_height, margin_width, 3), dtype=np.uint8) * 255
-            combined_frame = cv2.hconcat([raw_frame, split_region, depth_color])
-            
-            out.write(combined_frame)
+            prev_depth = depth
         
         raw_video.release()
         out.release()
